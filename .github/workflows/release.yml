@@ -1,5 +1,5 @@
 # Tag a release (v1.0.0) to attach firmware to GitHub Releases.
-name: Release
+name: Release Publish
 
 on:
   push:
@@ -48,8 +48,8 @@ jobs:
             VERSION="manual-${GITHUB_SHA::7}"
           fi
           mkdir -p dist
-          cp .pio/build/supermini/firmware-merged.bin "dist/plane-radar-${VERSION}.bin"
-          sha256sum "dist/plane-radar-${VERSION}.bin" > "dist/plane-radar-${VERSION}.bin.sha256"
+          cp .pio/build/supermini/firmware-merged.bin "dist/esp32-plane-radar-${VERSION}.bin"
+          sha256sum "dist/esp32-plane-radar-${VERSION}.bin" > "dist/esp32-plane-radar-${VERSION}.bin.sha256"
           echo "version=${VERSION}" >> "$GITHUB_ENV"
 
       - name: Publish GitHub Release

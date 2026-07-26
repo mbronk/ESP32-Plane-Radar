@@ -11,7 +11,7 @@
 #include "hardware/display.h"
 #include "hardware/display_font.h"
 
-namespace fonts = lgfx::v1::fonts;
+namespace lgfx_fonts = lgfx::v1::fonts;
 
 namespace {
 
@@ -38,13 +38,13 @@ float s_spinner_angle_deg = -90.0f;
 SpinnerDot s_spinner_dots[kSpinnerDotCount];
 bool s_connecting_text_drawn = false;
 
-constexpr auto& kGfxTitle = fonts::FreeSans18pt7b;
-constexpr auto& kGfxBody = fonts::FreeSans12pt7b;
-constexpr auto& kGfxDetail = fonts::Font2;
-constexpr auto& kPortalGfxTitle = fonts::FreeSansBold18pt7b;
-constexpr auto& kPortalGfxBody = fonts::FreeSansBold12pt7b;
-constexpr auto& kPortalGfxEmphasis = fonts::FreeSansBold18pt7b;
-constexpr auto& kConnectingGfxDetail = fonts::FreeSans9pt7b;
+constexpr auto& kGfxTitle = lgfx_fonts::FreeSans18pt7b;
+constexpr auto& kGfxBody = lgfx_fonts::FreeSans12pt7b;
+constexpr auto& kGfxDetail = lgfx_fonts::Font2;
+constexpr auto& kPortalGfxTitle = lgfx_fonts::FreeSansBold18pt7b;
+constexpr auto& kPortalGfxBody = lgfx_fonts::FreeSansBold12pt7b;
+constexpr auto& kPortalGfxEmphasis = lgfx_fonts::FreeSansBold18pt7b;
+constexpr auto& kConnectingGfxDetail = lgfx_fonts::FreeSans9pt7b;
 
 struct TextLine {
   const char* text;
@@ -143,7 +143,7 @@ void drawConnectingText() {
                kConnectingTextMaxWidthPx, total_h + kPanelPadY * 2, config::kColorBlack);
 
   int y = block_top;
-  tft.drawString("Connecting to", kCenterX, y + detail_h / 2);
+  tft.drawString("Laczenie z", kCenterX, y + detail_h / 2);
   y += detail_h + kLineGap;
   tft.drawString(s_ssid_line, kCenterX, y + detail_h / 2);
 
@@ -183,7 +183,7 @@ void drawSpinnerDots() {
 }  // namespace
 
 void statusScreenConnectingBegin(const char* ssid) {
-  const char* name = (ssid != nullptr && ssid[0] != '\0') ? ssid : "network";
+  const char* name = (ssid != nullptr && ssid[0] != '\0') ? ssid : "sieć";
   strncpy(s_connecting_ssid, name, sizeof(s_connecting_ssid) - 1);
   s_connecting_ssid[sizeof(s_connecting_ssid) - 1] = '\0';
   fitSsidLine();
@@ -210,12 +210,12 @@ void statusScreenConnectingTick() {
 
 void statusScreenPortal() {
   const TextLine lines[] = {
-      {"Wi-Fi setup", 1.15f, &kPortalGfxTitle},
-      {"1. Join network:", 1.05f, &kPortalGfxBody},
+      {"Konfiguracja Wi-Fi", 1.15f, &kPortalGfxTitle},
+      {"1. Polacz z siecia:", 1.05f, &kPortalGfxBody},
       {config::kPortalApName, 1.12f, &kPortalGfxEmphasis},
-      {"2. Open in browser:", 1.05f, &kPortalGfxBody},
+      {"2. Otworz w przegladarce:", 1.05f, &kPortalGfxBody},
       {config::kPortalHostUrl, 1.12f, &kPortalGfxEmphasis},
-      {"or 192.168.4.1", 1.0f, &kPortalGfxBody},
+      {"lub 192.168.4.1", 1.0f, &kPortalGfxBody},
   };
   drawTextBlock(config::kColorYellow, config::kTextOnYellow, lines,
                 sizeof(lines) / sizeof(lines[0]));
@@ -223,11 +223,11 @@ void statusScreenPortal() {
 
 void statusScreenConnectFailed() {
   const TextLine lines[] = {
-      {"Could not connect", 1.15f, &kGfxTitle},
-      {"Check Wi-Fi password", 1.0f, &kGfxBody},
-      {"and signal strength.", 1.0f, &kGfxBody},
-      {"Hold BOOT 3 sec", 1.0f, &kGfxBody},
-      {"to reset Wi-Fi", 1.0f, &kGfxBody},
+      {"Brak polaczenia", 1.15f, &kGfxTitle},
+      {"Sprawdz haslo Wi-Fi", 1.0f, &kGfxBody},
+      {"oraz sile sygnalu.", 1.0f, &kGfxBody},
+      {"Przytrzymaj BOOT 3 s", 1.0f, &kGfxBody},
+      {"aby zresetowac Wi-Fi", 1.0f, &kGfxBody},
   };
   drawTextBlock(config::kColorYellow, config::kTextOnYellow, lines,
                 sizeof(lines) / sizeof(lines[0]));
@@ -235,8 +235,8 @@ void statusScreenConnectFailed() {
 
 void statusScreenWifiReset() {
   const TextLine lines[] = {
-      {"Wi-Fi reset", 1.15f, &kPortalGfxTitle},
-      {"Restarting...", 1.05f, &kPortalGfxBody},
+      {"Reset Wi-Fi", 1.15f, &kPortalGfxTitle},
+      {"Restart...", 1.05f, &kPortalGfxBody},
   };
   drawTextBlock(config::kColorYellow, config::kTextOnYellow, lines,
                 sizeof(lines) / sizeof(lines[0]));

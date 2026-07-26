@@ -20,9 +20,16 @@
 
 portMUX_TYPE s_boot_mux = portMUX_INITIALIZER_UNLOCKED;
 volatile bool s_boot_tap_pending = false;
+// millis() at the moment the tap was actually released (ISR time), not
+// whenever bootButtonConsumeTap() happens to be polled -- blocking work
+// (e.g. the ADSB HTTP fetch on the radar page) can delay polling by
+// hundreds of ms, which would otherwise corrupt double-tap interval math.
+volatile unsigned long s_boot_tap_ms = 0;
 volatile bool s_boot_is_down = false;
 volatile unsigned long s_boot_down_ms = 0;
 bool s_long_press_handled = false;
+bool s_autocycle_hold_handled = false;
+bool s_autocycle_toggle_pending = false;
 bool s_boot_interrupt_attached = false;
 
 void IRAM_ATTR onBootButtonIsr() {
@@ -34,8 +41,10 @@ void IRAM_ATTR onBootButtonIsr() {
     s_boot_down_ms = now;
   } else if (s_boot_is_down) {
     const unsigned long held = now - s_boot_down_ms;
-    if (held >= config::kBootTapMinMs && held < config::kBootResetHoldMs) {
+    if (held >= config::kBootTapMinMs &&
+        held < config::kAutoCycleToggleHoldMs) {
       s_boot_tap_pending = true;
+      s_boot_tap_ms = now;
     }
     s_boot_is_down = false;
   }
@@ -71,17 +80,17 @@ constexpr int kCoordParamLen = 20;
 constexpr char kCoordInputAttrs[] =
     " type=\"number\" step=\"0.000001\"";
 
-WiFiManagerParameter s_param_lat("radar_lat", "Latitude (deg)", "0",
+WiFiManagerParameter s_param_lat("radar_lat", "Szer. geo (deg)", "0",
                                 kCoordParamLen, kCoordInputAttrs);
-WiFiManagerParameter s_param_lon("radar_lon", "Longitude (deg)", "0",
+WiFiManagerParameter s_param_lon("radar_lon", "Dł. geo (deg)", "0",
                                 kCoordParamLen, kCoordInputAttrs);
 
 char s_miles_checkbox_attrs[32] = "type=\"checkbox\"";
-WiFiManagerParameter s_param_miles("use_miles", "Display distances in miles", "T", 2,
+WiFiManagerParameter s_param_miles("use_miles", "Dystans w milach", "T", 2,
                                    s_miles_checkbox_attrs, WFM_LABEL_AFTER);
 
 char s_runways_checkbox_attrs[32] = "type=\"checkbox\"";
-WiFiManagerParameter s_param_runways("show_runways", "Show airport runways", "T", 2,
+WiFiManagerParameter s_param_runways("show_runways", "Pokaż pasy", "T", 2,
                                      s_runways_checkbox_attrs, WFM_LABEL_AFTER);
 
 void refreshPortalParamDefaults() {
@@ -291,7 +300,7 @@ bool tryConnectWithUi(const String& ssid, const String& pass, bool show_ui) {
     return true;
   }
 
-  const char* ui_ssid = ssid.length() > 0 ? ssid.c_str() : "network";
+  const char* ui_ssid = ssid.length() > 0 ? ssid.c_str() : "siec";
   if (show_ui) {
     statusScreenConnectingBegin(ui_ssid);
   }
@@ -300,9 +309,8 @@ bool tryConnectWithUi(const String& ssid, const String& pass, bool show_ui) {
     if (attempt > 1) {
       Serial.printf("WiFi connect retry %u/%u\n", attempt,
                     config::kWifiConnectAttempts);
-      WiFi.disconnect(true);
-      WiFi.mode(WIFI_OFF);
-      delay(400);
+      WiFi.disconnect(false);
+      delay(100);
     }
 
     startStaConnect(ssid, pass);
@@ -331,7 +339,7 @@ bool connectSavedNetwork(bool show_ui) {
 
 bool openConfigPortal() {
   stopLanWebPortal();
-  WiFi.disconnect(true);
+  WiFi.disconnect(false);
   WiFi.mode(WIFI_OFF);
   delay(50);
   statusScreenPortal();
@@ -368,14 +376,26 @@ bool wifiBootButtonPressed() {
 
 void bootButtonInit() { initBootButton(); }
 
-bool bootButtonConsumeTap() {
+bool bootButtonConsumeTap(unsigned long* tap_ms) {
   portENTER_CRITICAL(&s_boot_mux);
   const bool tap = s_boot_tap_pending;
+  const unsigned long ms = s_boot_tap_ms;
   if (tap) {
     s_boot_tap_pending = false;
   }
   portEXIT_CRITICAL(&s_boot_mux);
+  if (tap && tap_ms != nullptr) {
+    *tap_ms = ms;
+  }
   return tap;
+}
+
+bool bootButtonConsumeAutoCycleToggle() {
+  const bool toggled = s_autocycle_toggle_pending;
+  if (toggled) {
+    s_autocycle_toggle_pending = false;
+  }
+  return toggled;
 }
 
 void bootButtonPollLongPress() {
@@ -387,9 +407,15 @@ void bootButtonPollLongPress() {
     }
     const unsigned long down_ms = s_boot_down_ms;
     portEXIT_CRITICAL(&s_boot_mux);
+    const unsigned long held = millis() - down_ms;
 
-    if (!s_long_press_handled &&
-        millis() - down_ms >= config::kBootResetHoldMs) {
+    if (!s_autocycle_hold_handled && held >= config::kAutoCycleToggleHoldMs &&
+        held < config::kBootResetHoldMs) {
+      s_autocycle_hold_handled = true;
+      s_autocycle_toggle_pending = true;
+    }
+
+    if (!s_long_press_handled && held >= config::kBootResetHoldMs) {
       s_long_press_handled = true;
       Serial.println("BOOT held — resetting WiFi");
       wifiResetCredentialsAndReboot();
@@ -399,6 +425,7 @@ void bootButtonPollLongPress() {
     s_boot_is_down = false;
     portEXIT_CRITICAL(&s_boot_mux);
     s_long_press_handled = false;
+    s_autocycle_hold_handled = false;
   }
 }
 
@@ -409,10 +436,12 @@ void wifiResetCredentialsAndReboot() {
   esp_restart();
 }
 
-bool wifiReconnect() {
+bool wifiReconnect(bool show_ui) {
   initBootButton();
-  Serial.println("WiFi reconnecting...");
-  return connectSavedNetwork(true);
+  if (show_ui) {
+    Serial.println("WiFi reconnecting...");
+  }
+  return connectSavedNetwork(show_ui);
 }
 
 void wifiLoop() {

@@ -25,9 +25,12 @@ constexpr unsigned long kWifiReconnectIntervalMs = 15000;
 
 // --- BOOT button (ESP32-C3 Super Mini, active LOW) ---
 constexpr gpio_num_t kBootPin = GPIO_NUM_9;
-constexpr unsigned long kBootResetHoldMs = 3000UL;
+constexpr unsigned long kBootResetHoldMs = 10000UL;
 /** Ignore BOOT taps shorter than this (debounce). */
 constexpr unsigned long kBootTapMinMs = 40UL;
+/** Hold BOOT past this (but under kBootResetHoldMs) to toggle weather
+ *  auto-cycle instead of registering as a tap. */
+constexpr unsigned long kAutoCycleToggleHoldMs = 900UL;
 
 // --- Display: GC9A01 1.28" round 240×240 (SPI) ---
 constexpr gpio_num_t kDisplayPinRst = GPIO_NUM_0;
@@ -54,6 +57,10 @@ constexpr unsigned long kAdsbFetchIntervalMs = 3000;
 constexpr float kAdsbFetchRadiusScale = 1.0f;
 /** false = hide aircraft with alt_baro "ground"; true = show them too. */
 constexpr bool kAdsbShowGroundAircraft = false;
+
+// --- Weather ---
+constexpr unsigned long kWeatherFetchIntervalMs = 600000UL;  // 10 min
+constexpr unsigned long kWeatherRetryIntervalMs = 5000UL;
 
 // --- UI colors (RGB565) — status screens ---
 constexpr uint16_t kColorBlack = 0x0000;
